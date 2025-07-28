@@ -1,0 +1,15 @@
+<h2>داشبورد {{ school.name }}</h2>
+{% for message in messages %}
+  <div class="alert">{{ message }}</div>
+{% endfor %}
+<table border="1">
+    <tr><th>شرح</th><th>فروشگاه</th><th>مبلغ</th><th>عملیات</th></tr>
+    {% for p in purchases %}
+    <tr>
+        <td contenteditable="true">{{ p.description }}</td>
+        <td>{{ p.store.name }}</td>
+        <td contenteditable="true">{{ p.amount }}</td>
+        <td><a href="#">ویرایش</a> | <a href="#">حذف</a></td>
+    </tr>
+    {% endfor %}
+</table>

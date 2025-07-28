@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <title>مدیریت فروشگاه‌ها</title>
+</head>
+<body>
+<h2>مدیریت فروشگاه‌ها</h2>
+
+<form method="post">
+    {% csrf_token %}
+    <table id="stores-table" border="1" cellpadding="5">
+        <thead>
+            <tr>
+                <th>نام فروشگاه</th>
+                <th>حذف</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for st in stores %}
+            <tr>
+                <td><input type="text" name="store_name_{{ forloop.counter0 }}" value="{{ st.name }}"></td>
+                <td><button type="button" onclick="deleteRow(this)">X</button></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <input type="hidden" id="total_rows" name="total_rows" value="{{ stores|length }}">
+    <button type="button" onclick="addRow()">+ افزودن فروشگاه</button>
+    <button type="submit">ذخیره</button>
+</form>
+<h2>لیست فروشگاه‌ها</h2>
+<table border="1">
+    <tr><th>نام فروشگاه</th></tr>
+    {% for store in stores %}
+    <tr><td contenteditable="true">{{ store.name }}</td></tr>
+    {% endfor %}
+</table>
+
+<script>
+function addRow() {
+    var table = document.getElementById("stores-table").getElementsByTagName('tbody')[0];
+    var rowCount = table.rows.length;
+    var row = table.insertRow(rowCount);
+
+    row.innerHTML = `
+        <td><input type="text" name="store_name_${rowCount}"></td>
+        <td><button type="button" onclick="deleteRow(this)">X</button></td>
+    `;
+    document.getElementById("total_rows").value = rowCount + 1;
+}
+
+function deleteRow(btn) {
+    var row = btn.parentNode.parentNode;
+    row.remove();
+    document.getElementById("total_rows").value =
+        document.getElementById("stores-table").getElementsByTagName('tbody')[0].rows.length;
+}
+</script>
+</body>
+</html>

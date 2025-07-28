@@ -1,0 +1,12 @@
+<h2>فاکتور خریدها</h2>
+<table border="1">
+    <tr><th>شرح</th><th>مدرسه</th><th>مبلغ</th></tr>
+    {% for p in purchases %}
+    <tr>
+        <td>{{ p.description }}</td>
+        <td>{{ p.school.name }}</td>
+        <td>{{ p.amount }}</td>
+    </tr>
+    {% endfor %}
+</table>
+<button onclick="window.print()">چاپ</button>
