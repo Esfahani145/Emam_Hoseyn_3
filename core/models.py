@@ -3,47 +3,62 @@ from django.contrib.auth.models import AbstractUser
 
 class User(AbstractUser):
     ROLE_CHOICES = (
-        ('manager', 'مدیر مؤسسه'),
-        ('school', 'مدیر مدرسه'),
+        ('manager', 'مدیر موسسه'),
+        ('school_admin', 'مدیر مدرسه'),
     )
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
 
 class School(models.Model):
-    name = models.CharField(max_length=200)
-    manager = models.OneToOneField(User, on_delete=models.CASCADE, limit_choices_to={'role': 'school'})
-    budget_limit = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    name = models.CharField(max_length=100)
+    admin = models.OneToOneField(User, on_delete=models.CASCADE, related_name='school', null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+
+class Store(models.Model):
+    name = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.name
+
+class BudgetType(models.Model):
+    name = models.CharField(max_length=100)
+
     def __str__(self):
         return self.name
 
 class Budget(models.Model):
-    BUDGET_TYPES = [
-        ('type1', 'سرانه نوع ۱'),
-        ('type2', 'سرانه نوع ۲'),
-        ('type3', 'سرانه نوع ۳'),
-    ]
-    school = models.ForeignKey(School, on_delete=models.CASCADE)
-    budget_type = models.CharField(max_length=10, choices=BUDGET_TYPES)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='budgets')
+    budget_type = models.ForeignKey(BudgetType, on_delete=models.CASCADE)
+    amount = models.PositiveIntegerField()
 
-class Store(models.Model):
-    name = models.CharField(max_length=200)
-    max_purchase_limit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     def __str__(self):
-        return self.name
+        return f"{self.school.name} - {self.budget_type.name} - {self.amount}"
 
 class Purchase(models.Model):
-    school = models.ForeignKey(School, on_delete=models.CASCADE)
-    store = models.ForeignKey(Store, on_delete=models.CASCADE)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='purchases')
+    store = models.ForeignKey(Store, on_delete=models.PROTECT)
     description = models.CharField(max_length=255)
     quantity = models.PositiveIntegerField()
-    amount = models.DecimalField(max_digits=15, decimal_places=2)
-    price = models.DecimalField(max_digits=20, decimal_places=2)
+    price = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
-    def __str__(self):
-        return f"{self.school.name} - {self.amount}"
+
     @property
     def total(self):
         return self.quantity * self.price
 
-class ManagerSettings(models.Model):
-    tax_limit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+class Invoice(models.Model):
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='invoices')
+    created_at = models.DateTimeField(auto_now_add=True)
+    tax_amount = models.PositiveIntegerField(default=0)
+
+    def total_amount(self):
+        return sum([p.total for p in self.purchases.all()])
+
+
+class InvoiceItem(models.Model):
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='purchases')
+    purchase = models.OneToOneField(Purchase, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.purchase.description} - {self.purchase.total}"

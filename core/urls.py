@@ -1,19 +1,15 @@
 from django.urls import path
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from .views import RegisterView, StoreListCreateView, BudgetListCreateView, PurchaseListCreateView, InvoiceListView
 from . import views
 
 urlpatterns = [
-    path('', views.login_view, name='login'),
-    path('login/', views.login_view, name='login'),
-    path('logout/', views.logout_view, name='logout'),
-    path('dashboard/', views.dashboard_view, name='dashboard'),
-
-    # پنل مدیر
-    path('manager/', views.manager_dashboard, name='manager_dashboard'),
-    path('manager/add_store/', views.add_store, name='add_store'),
-    path('manager/delete_store/<int:store_id>/', views.delete_store, name='delete_store'),
-    path('manager/set_budget/<int:school_id>/', views.set_budget, name='set_budget'),
-    path('manager/invoices/', views.invoices_list, name='invoices'),
-
-    # پنل مدرسه
-    path('add_purchase/', views.add_purchase, name='add_purchase'),
+    path('register/', RegisterView.as_view(), name='register'),
+    path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('select_store/', views.select_store),
+    path('stores/', views.store_list),
+    path('budgets/', BudgetListCreateView.as_view(), name='budgets'),
+    path('purchases/', PurchaseListCreateView.as_view(), name='purchases'),
+    path('invoices/', InvoiceListView.as_view(), name='invoices'),
 ]

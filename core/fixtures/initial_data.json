@@ -1,0 +1,165 @@
+[
+  {
+    "model": "core.user",
+    "pk": 1,
+    "fields": {
+      "username": "manager",
+      "password": "pbkdf2_sha256$260000$0P5nFZ3MVvDh5ur3YqTqE9$1rOgALlm5gTNNN3l+81cgmb6s4DlB8U6Pnsbq9HyTvY=",
+      "role": "manager",
+      "is_superuser": true,
+      "is_staff": true
+    }
+  },
+  {
+    "model": "core.user",
+    "pk": 2,
+    "fields": {
+      "username": "school_admin_1",
+      "password": "pbkdf2_sha256$260000$0P5nFZ3MVvDh5ur3YqTqE9$1rOgALlm5gTNNN3l+81cgmb6s4DlB8U6Pnsbq9HyTvY=",
+      "role": "school_admin",
+      "is_superuser": false,
+      "is_staff": true
+    }
+  },
+  {
+    "model": "core.school",
+    "pk": 1,
+    "fields": {
+      "name": "مدرسه 1",
+      "admin": 2
+    }
+  },
+  {
+    "model": "core.user",
+    "pk": 3,
+    "fields": {
+      "username": "school_admin_2",
+      "password": "pbkdf2_sha256$260000$0P5nFZ3MVvDh5ur3YqTqE9$1rOgALlm5gTNNN3l+81cgmb6s4DlB8U6Pnsbq9HyTvY=",
+      "role": "school_admin",
+      "is_superuser": false,
+      "is_staff": true
+    }
+  },
+  {
+    "model": "core.school",
+    "pk": 2,
+    "fields": {
+      "name": "مدرسه 2",
+      "admin": 3
+    }
+  },
+  {
+    "model": "core.user",
+    "pk": 4,
+    "fields": {
+      "username": "school_admin_3",
+      "password": "pbkdf2_sha256$260000$0P5nFZ3MVvDh5ur3YqTqE9$1rOgALlm5gTNNN3l+81cgmb6s4DlB8U6Pnsbq9HyTvY=",
+      "role": "school_admin",
+      "is_superuser": false,
+      "is_staff": true
+    }
+  },
+  {
+    "model": "core.school",
+    "pk": 3,
+    "fields": {
+      "name": "مدرسه 3",
+      "admin": 4
+    }
+  },
+  {
+    "model": "core.user",
+    "pk": 5,
+    "fields": {
+      "username": "school_admin_4",
+      "password": "pbkdf2_sha256$260000$0P5nFZ3MVvDh5ur3YqTqE9$1rOgALlm5gTNNN3l+81cgmb6s4DlB8U6Pnsbq9HyTvY=",
+      "role": "school_admin",
+      "is_superuser": false,
+      "is_staff": true
+    }
+  },
+  {
+    "model": "core.school",
+    "pk": 4,
+    "fields": {
+      "name": "مدرسه 4",
+      "admin": 5
+    }
+  },
+  {
+    "model": "core.user",
+    "pk": 6,
+    "fields": {
+      "username": "school_admin_5",
+      "password": "pbkdf2_sha256$260000$0P5nFZ3MVvDh5ur3YqTqE9$1rOgALlm5gTNNN3l+81cgmb6s4DlB8U6Pnsbq9HyTvY=",
+      "role": "school_admin",
+      "is_superuser": false,
+      "is_staff": true
+    }
+  },
+  {
+    "model": "core.school",
+    "pk": 5,
+    "fields": {
+      "name": "مدرسه 5",
+      "admin": 6
+    }
+  },
+  {
+    "model": "core.user",
+    "pk": 7,
+    "fields": {
+      "username": "school_admin_6",
+      "password": "pbkdf2_sha256$260000$0P5nFZ3MVvDh5ur3YqTqE9$1rOgALlm5gTNNN3l+81cgmb6s4DlB8U6Pnsbq9HyTvY=",
+      "role": "school_admin",
+      "is_superuser": false,
+      "is_staff": true
+    }
+  },
+  {
+    "model": "core.school",
+    "pk": 6,
+    "fields": {
+      "name": "مدرسه 6",
+      "admin": 7
+    }
+  },
+  {
+    "model": "core.user",
+    "pk": 8,
+    "fields": {
+      "username": "school_admin_7",
+      "password": "pbkdf2_sha256$260000$0P5nFZ3MVvDh5ur3YqTqE9$1rOgALlm5gTNNN3l+81cgmb6s4DlB8U6Pnsbq9HyTvY=",
+      "role": "school_admin",
+      "is_superuser": false,
+      "is_staff": true
+    }
+  },
+  {
+    "model": "core.school",
+    "pk": 7,
+    "fields": {
+      "name": "مدرسه 7",
+      "admin": 8
+    }
+  },
+  {
+    "model": "core.user",
+    "pk": 9,
+    "fields": {
+      "username": "school_admin_8",
+      "password": "pbkdf2_sha256$260000$0P5nFZ3MVvDh5ur3YqTqE9$1rOgALlm5gTNNN3l+81cgmb6s4DlB8U6Pnsbq9HyTvY=",
+      "role": "school_admin",
+      "is_superuser": false,
+      "is_staff": true
+    }
+  },
+  {
+    "model": "core.school",
+    "pk": 8,
+    "fields": {
+      "name": "مدرسه 8",
+      "admin": 9
+    }
+  }
+]
