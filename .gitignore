@@ -6,3 +6,4 @@ __pycache__/
 *.pot
 env/
 venv/
+node_modules/
