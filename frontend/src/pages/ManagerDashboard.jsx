@@ -8,31 +8,44 @@ function ManagerDashboard() {
     const [summary, setSummary] = useState([]);
     const [form, setForm] = useState({school: '', type: '', amount: ''});
     const [newStoreName, setNewStoreName] = useState('');
-    const [minAmount, setMinAmount] = useState(0);
+    const [minAmount, setMinAmount] = useState('');
     const [filteredStores, setFilteredStores] = useState([]);
     const [storeStats, setStoreStats] = useState([]);
     const [editBudget, setEditBudget] = useState(null);
     const [purchases, setPurchases] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [passwordForm, setPasswordForm] = useState({current: '', newPass: '', confirm: ''});
+
     const token = localStorage.getItem('access_token');
+
     const schoolMap = schools.reduce((acc, s) => {
         acc[s.id] = s.name;
         return acc;
     }, {});
-    const storeMap = stores.reduce((acc, s) => {
-        acc[s.id] = s.name;
-        return acc;
-    }, {});
-    const [budgetId, setBudgetId] = useState(null);
 
     const startEditing = (budget) => {
         setEditBudget({
             id: budget.id,
             school_id: budget.school_id || budget.school,
             type: budget.budget_type,
-            amount: budget.amount
+            amount: budget.amount,
         });
     };
+
+    let [budgetTypes, setBudgetTypes] = useState([
+        {id: 1, name: 'آموزش و پرورش'},
+        {id: 2, name: 'فوق برنامه'},
+        {id: 3, name: 'خارج از برنامه'},
+    ]);
+
+    useEffect(() => {
+        fetch('http://localhost:8000/api/budget-types/', {
+            headers: {Authorization: 'Bearer ' + token},
+        })
+            .then((res) => res.json())
+            .then((data) => setBudgetTypes(data))
+            .catch(console.error);
+    }, [token]);
 
     useEffect(() => {
         fetch('http://localhost:8000/api/purchase-summary/', {
@@ -50,28 +63,7 @@ function ManagerDashboard() {
                 console.error('❌ Error fetching purchases', err);
                 setLoading(false);
             });
-    }, []);
-
-    let [budgetTypes, setBudgetTypes] = useState([]);
-    budgetTypes = [
-        {id: 1, name: 'آموزش و پرورش'},
-        {id: 2, name: 'فوق برنامه'},
-        {id: 3, name: 'خارج از برنامه'},
-    ];
-
-    useEffect(() => {
-        fetch('http://localhost:8000/api/budget-types/', {
-            headers: {Authorization: 'Bearer ' + token},
-        })
-            .then((res) => res.json())
-            .then((data) => setBudgetTypes(data))
-            .catch(console.error);
-    }, []);
-
-    const filterExpensiveStores = () => {
-        const result = storeStats.filter((s) => s.total_sales > minAmount);
-        setFilteredStores(result);
-    };
+    }, [token]);
 
     const fetchSchools = async () => {
         try {
@@ -129,28 +121,8 @@ function ManagerDashboard() {
         }
     };
 
-    const fetchStoreStats = async () => {
-        try {
-            const res = await fetch('http://localhost:8000/api/store_stats/', {
-                headers: {Authorization: 'Bearer ' + token},
-            });
-            if (!res.ok) throw new Error('خطا در دریافت آمار فروشگاه‌ها');
-            const data = await res.json();
-            setStoreStats(data);
-        } catch (err) {
-            console.error(err);
-            setStoreStats([]);
-        }
-    };
-
     const fetchAllData = async () => {
-        await Promise.all([
-            fetchSchools(),
-            fetchStores(),
-            fetchBudgets(),
-            fetchSummary(),
-            fetchStoreStats(),
-        ]);
+        await Promise.all([fetchSchools(), fetchStores(), fetchBudgets(), fetchSummary()]);
     };
 
     useEffect(() => {
@@ -158,8 +130,28 @@ function ManagerDashboard() {
             alert('لطفا وارد سیستم شوید');
             return;
         }
+        console.log('📡 fetching all data');
         fetchAllData();
     }, [token]);
+
+    const filterExpensiveStores = () => {
+        const min = Number(minAmount);
+        console.log('✅ minAmount:', minAmount);
+        console.log('📊 storeStats:', storeStats);
+
+        if (!minAmount || isNaN(min)) {
+            alert('عدد معتبری وارد کنید');
+            setFilteredStores([]);
+            return;
+        }
+
+        const filtered = storeStats.filter((s) => {
+            const total = Number(s.total_sales);
+            return !isNaN(total) && total >= min;
+        });
+
+        setFilteredStores(filtered);
+    };
 
     const handleSubmit = () => {
         if (!form.school || !form.type || !form.amount) {
@@ -199,18 +191,18 @@ function ManagerDashboard() {
 
     const saveEdit = async () => {
         if (!editBudget.amount) {
-            return alert('لطفا همه فیلدها را پر کنید');
+            return alert('لطفا مقدار را وارد کنید');
         }
-        const budgetId = editBudget.id; // اینجا حتما id را بگیرید
+        const budgetId = editBudget.id;
 
         try {
             const res = await fetch(`http://localhost:8000/api/budgets/update/${budgetId}/`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(editBudget)
+                body: JSON.stringify(editBudget),
             });
 
             if (!res.ok) throw new Error('خطا در ویرایش سرانه');
@@ -250,43 +242,77 @@ function ManagerDashboard() {
         }
     };
 
+    const handlePasswordChange = (field, value) => {
+        setPasswordForm((prev) => ({...prev, [field]: value}));
+    };
+
+    const handlePasswordSubmit = async () => {
+        if (!passwordForm.current || !passwordForm.newPass || !passwordForm.confirm) {
+            return alert('لطفا همه فیلدها را پر کنید');
+        }
+        if (passwordForm.newPass !== passwordForm.confirm) {
+            return alert('رمز جدید با تایید آن مطابقت ندارد');
+        }
+
+        try {
+            const res = await fetch('http://localhost:8000/api/change-password/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    current_password: passwordForm.current,
+                    new_password: passwordForm.newPass,
+                }),
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                console.error('Password change error details:', errData);
+                throw new Error(errData.detail || JSON.stringify(errData) || 'خطا در تغییر رمز');
+            }
+
+
+            alert('✅ رمز عبور با موفقیت تغییر کرد');
+            setPasswordForm({current: '', newPass: '', confirm: ''});
+        } catch (err) {
+            alert(err.message);
+
+        }
+    };
+
+    useEffect(() => {
+        fetch('http://localhost:8000/api/store_sales_stats/', {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        })
+            .then((res) => res.json())
+            .then((data) => setStoreStats(data))
+            .catch((err) => {
+                console.error('❌ error fetching store stats:', err);
+                setStoreStats([]);
+            });
+    }, [token]);
+
 
     if (loading)
         return (
             <Layout title="پنل مدیر">
-                <p style={{textAlign: 'center', marginTop: 20, color: '#555'}}>
-                    در حال بارگذاری...
-                </p>
+                <p style={{textAlign: 'center', marginTop: 20, color: '#555'}}>در حال بارگذاری...</p>
             </Layout>
         );
 
     return (
         <Layout title="پنل مدیر">
-            <section
-                style={{
-                    marginBottom: 24,
-                    backgroundColor: '#f9f9f9',
-                    padding: 20,
-                    borderRadius: 6,
-                    boxShadow: '0 0 5px rgba(0,0,0,0.1)',
-                }}
-            >
-                <h3
-                    style={{
-                        fontWeight: 'bold',
-                        marginBottom: 12,
-                        color: '#333',
-                        borderBottom: '1px solid #ddd',
-                        paddingBottom: 8,
-                    }}
-                >
-                    ثبت سرانه جدید
-                </h3>
-                <div style={{marginBottom: 12}}>
+            <section style={sectionStyle}>
+                <h3 style={sectionTitleStyle}>ثبت سرانه جدید</h3>
+                <div style={formGroupStyle}>
                     <select
                         value={form.school}
                         onChange={(e) => setForm({...form, school: e.target.value})}
-                        className="w-full p-2 border border-gray-300 rounded text-right"
+                        style={selectStyle}
                     >
                         <option value="">انتخاب مدرسه</option>
                         {schools.map((s) => (
@@ -296,11 +322,11 @@ function ManagerDashboard() {
                         ))}
                     </select>
                 </div>
-                <div style={{marginBottom: 12}}>
+                <div style={formGroupStyle}>
                     <select
                         value={form.type}
                         onChange={(e) => setForm({...form, type: e.target.value})}
-                        className="w-full p-2 border border-gray-300 rounded text-right"
+                        style={selectStyle}
                     >
                         <option value="">نوع سرانه</option>
                         {budgetTypes.map((bt) => (
@@ -310,7 +336,7 @@ function ManagerDashboard() {
                         ))}
                     </select>
                 </div>
-                <div style={{marginBottom: 12}}>
+                <div style={formGroupStyle}>
                     <input
                         type="number"
                         value={form.amount}
@@ -319,33 +345,13 @@ function ManagerDashboard() {
                         style={inputStyle}
                     />
                 </div>
-                <button onClick={handleSubmit}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                >
+                <button onClick={handleSubmit} style={buttonPrimaryStyle}>
                     ثبت
                 </button>
             </section>
 
-            <section
-                style={{
-                    marginBottom: 24,
-                    backgroundColor: '#f9f9f9',
-                    padding: 20,
-                    borderRadius: 6,
-                    boxShadow: '0 0 5px rgba(0,0,0,0.1)',
-                }}
-            >
-                <h3
-                    style={{
-                        fontWeight: 'bold',
-                        marginBottom: 12,
-                        color: '#333',
-                        borderBottom: '1px solid #ddd',
-                        paddingBottom: 8,
-                    }}
-                >
-                    افزودن فروشگاه جدید
-                </h3>
+            <section style={sectionStyle}>
+                <h3 style={sectionTitleStyle}>افزودن فروشگاه جدید</h3>
                 <div style={{display: 'flex', gap: 12, marginBottom: 12}}>
                     <input
                         value={newStoreName}
@@ -353,40 +359,19 @@ function ManagerDashboard() {
                         placeholder="نام فروشگاه"
                         style={{...inputStyle, flex: 1}}
                     />
-                    <button onClick={handleAddStore}
-                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                    >
+                    <button onClick={handleAddStore} style={buttonPrimaryStyle}>
                         افزودن
                     </button>
                 </div>
-                <ul style={{paddingLeft: 20, color: '#444'}}>
+                <ul style={{paddingLeft: 20, color: '#444', maxHeight: 120, overflowY: 'auto'}}>
                     {stores.map((store) => (
                         <li key={store.id}>{store.name}</li>
                     ))}
                 </ul>
             </section>
 
-            <section
-                style={{
-                    marginBottom: 24,
-                    backgroundColor: '#f9f9f9',
-                    padding: 20,
-                    borderRadius: 6,
-                    boxShadow: '0 0 5px rgba(0,0,0,0.1)',
-                    overflowX: 'auto',
-                }}
-            >
-                <h3
-                    style={{
-                        fontWeight: 'bold',
-                        marginBottom: 12,
-                        color: '#333',
-                        borderBottom: '1px solid #ddd',
-                        paddingBottom: 8,
-                    }}
-                >
-                    لیست سرانه‌ها
-                </h3>
+            <section style={{...sectionStyle, overflowX: 'auto'}}>
+                <h3 style={sectionTitleStyle}>لیست سرانه‌ها</h3>
                 <table style={tableStyle}>
                     <thead>
                     <tr>
@@ -397,33 +382,39 @@ function ManagerDashboard() {
                     </tr>
                     </thead>
                     <tbody>
-                    {budgets.map(b => (
-                        <tr key={b.id}>
-                            <td>{schoolMap[b.school] || 'نامشخص'}</td>
-                            <td>{budgetTypes.find(bt => bt.id === b.budget_type)?.name || 'نامشخص'}</td>
-
-                            <td>
+                    {budgets.map((b) => (
+                        <tr key={b.id} style={{backgroundColor: editBudget?.id === b.id ? '#f0f8ff' : 'transparent'}}>
+                            <td style={tdStyle}>{schoolMap[b.school] || 'نامشخص'}</td>
+                            <td style={tdStyle}>
+                                {budgetTypes.find((bt) => bt.id === b.budget_type)?.name || 'نامشخص'}
+                            </td>
+                            <td style={tdStyle}>
                                 {editBudget?.id === b.id ? (
                                     <input
                                         type="number"
                                         value={editBudget.amount}
                                         onChange={(e) => handleEditChange('amount', e.target.value)}
-                                        style={{width: '100px', padding: '4px'}}
+                                        style={{width: '100px', padding: '4px', fontSize: 14}}
                                     />
                                 ) : (
-                                    b.amount?.toLocaleString() || '۰'
+                                    (b.amount?.toLocaleString() || '۰') + ' تومان'
                                 )}
                             </td>
-
-                            <td>
+                            <td style={tdStyle}>
                                 {editBudget?.id === b.id ? (
                                     <>
-                                        <button onClick={saveEdit} className="btn-primary">ذخیره</button>
-                                        <button onClick={() => setEditBudget(null)} className="btn-secondary">انصراف
+                                        <button onClick={saveEdit} style={buttonPrimaryStyle}>
+                                            ذخیره
+                                        </button>
+                                        {' '}
+                                        <button onClick={() => setEditBudget(null)} style={buttonSecondaryStyle}>
+                                            انصراف
                                         </button>
                                     </>
                                 ) : (
-                                    <button onClick={() => setEditBudget(b)}>ویرایش</button>
+                                    <button onClick={() => startEditing(b)} style={buttonEditStyle}>
+                                        ویرایش
+                                    </button>
                                 )}
                             </td>
                         </tr>
@@ -432,82 +423,169 @@ function ManagerDashboard() {
                 </table>
             </section>
 
-            <section
-                style={{
-                    marginBottom: 24,
-                    backgroundColor: '#f9f9f9',
-                    padding: 20,
-                    borderRadius: 6,
-                    boxShadow: '0 0 5px rgba(0,0,0,0.1)',
-                }}
-            >
-                <h3
-                    style={{
-                        fontWeight: 'bold',
-                        marginBottom: 12,
-                        color: '#333',
-                        borderBottom: '1px solid #ddd',
-                        paddingBottom: 8,
-                    }}
-                >
-                    فروشگاه‌هایی با مجموع فروش بیش از مبلغ وارد شده
-                </h3>
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        marginBottom: 12,
-                    }}
-                >
+            <div>
+                <h2>📊 آمار فروش فروشگاه‌ها</h2>
+                {storeStats.length === 0 ? (
+                    <p>داده‌ای موجود نیست</p>
+                ) : (
+                    <ul>
+                        {storeStats.map((store) => (
+                            <li key={store.store__id}>
+                                {store.store__name}: {Number(store.total_sales).toLocaleString()} تومان
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+
+            <section style={sectionStyle}>
+                <h3 style={sectionTitleStyle}>فیلتر فروشگاه‌ها بر اساس حداقل فروش</h3>
+                <div style={{display: 'flex', gap: 12, marginBottom: 12, maxWidth: 300}}>
                     <input
                         type="number"
-                        placeholder="مبلغ (تومان)"
-                        style={{...inputStyle, maxWidth: 200}}
-                        onChange={(e) => setMinAmount(Number(e.target.value))}
+                        value={minAmount}
+                        onChange={(e) => setMinAmount(e.target.value)}
+                        placeholder="مقدار حداقل فروش (تومان)"
+                        style={{...inputStyle, flex: 1}}
                     />
-                    <button onClick={filterExpensiveStores}
-                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                    >
-                        فیلتر کن
+                    <button onClick={filterExpensiveStores} style={buttonPrimaryStyle}>
+                        فیلتر
                     </button>
                 </div>
-                <ul style={{paddingLeft: 20, color: '#444'}}>
-                    {filteredStores.map((store) => (
-                        <li key={store.store_id}>
-                            {storeMap[store.store_id] || 'نامشخص'}:{' '}
-                            {store.total_sales.toLocaleString()} تومان
-                        </li>
-                    ))}
-                </ul>
+
+                {filteredStores.length === 0 ? (
+                    <p>نتیجه‌ای برای فیلتر یافت نشد.</p>
+                ) : (
+                    <ul style={{paddingLeft: 20, color: '#444'}}>
+                        {filteredStores.map((store) => (
+                            <li key={store.store__id}>
+                                {store.store__name}: {Number(store.total_sales).toLocaleString()} تومان
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </section>
 
+            {/*<section style={sectionStyle}>*/}
+            {/*    <h3 style={sectionTitleStyle}>تغییر رمز عبور</h3>*/}
+            {/*    <div style={formGroupStyle}>*/}
+            {/*        <input*/}
+            {/*            type="password"*/}
+            {/*            placeholder="رمز عبور فعلی"*/}
+            {/*            value={passwordForm.current}*/}
+            {/*            onChange={(e) => handlePasswordChange('current', e.target.value)}*/}
+            {/*            style={inputStyle}*/}
+            {/*        />*/}
+            {/*    </div>*/}
+            {/*    <div style={formGroupStyle}>*/}
+            {/*        <input*/}
+            {/*            type="password"*/}
+            {/*            placeholder="رمز عبور جدید"*/}
+            {/*            value={passwordForm.newPass}*/}
+            {/*            onChange={(e) => handlePasswordChange('newPass', e.target.value)}*/}
+            {/*            style={inputStyle}*/}
+            {/*        />*/}
+            {/*    </div>*/}
+            {/*    <div style={formGroupStyle}>*/}
+            {/*        <input*/}
+            {/*            type="password"*/}
+            {/*            placeholder="تایید رمز عبور جدید"*/}
+            {/*            value={passwordForm.confirm}*/}
+            {/*            onChange={(e) => handlePasswordChange('confirm', e.target.value)}*/}
+            {/*            style={inputStyle}*/}
+            {/*        />*/}
+            {/*    </div>*/}
+            {/*    <button onClick={handlePasswordSubmit} style={buttonPrimaryStyle}>*/}
+            {/*        تغییر رمز*/}
+            {/*    </button>*/}
+            {/*</section>*/}
         </Layout>
     );
 }
 
+const sectionStyle = {
+    marginBottom: 30,
+    padding: 20,
+    border: '1px solid #ccc',
+    borderRadius: 8,
+    backgroundColor: '#fafafa',
+};
+
+const sectionTitleStyle = {
+    marginBottom: 16,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#222',
+};
+
+const formGroupStyle = {
+    marginBottom: 12,
+};
+
 const inputStyle = {
     width: '100%',
-    padding: '8px 10px',
-    border: '1px solid #ccc',
+    padding: '8px 12px',
     borderRadius: 4,
-    fontSize: 14,
-    color: '#333',
+    border: '1px solid #aaa',
+    fontSize: 16,
     boxSizing: 'border-box',
+};
+
+const selectStyle = {
+    ...inputStyle,
+    appearance: 'none',
+    backgroundColor: '#fff',
+};
+
+const buttonPrimaryStyle = {
+    backgroundColor: '#004085',
+    color: 'white',
+    border: 'none',
+    borderRadius: 5,
+    padding: '8px 16px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    fontSize: 16,
+};
+
+const buttonSecondaryStyle = {
+    backgroundColor: '#6c757d',
+    color: 'white',
+    border: 'none',
+    borderRadius: 5,
+    padding: '6px 12px',
+    fontSize: 14,
+    cursor: 'pointer',
+};
+
+const buttonEditStyle = {
+    ...buttonSecondaryStyle,
+    backgroundColor: '#17a2b8',
+    borderRadius: 5,
+    padding: '6px 12px',
+    fontSize: 14,
+    cursor: 'pointer',
 };
 
 const tableStyle = {
     width: '100%',
     borderCollapse: 'collapse',
     fontSize: 14,
-    color: '#333',
+    color: '#222',
 };
 
 const thStyle = {
-    borderBottom: '2px solid #bbb',
+    borderBottom: '2px solid #ddd',
     padding: '10px 12px',
     textAlign: 'right',
-    backgroundColor: '#eaeaea',
+    backgroundColor: '#f8f8f8',
+    fontWeight: 'bold',
+};
+
+const tdStyle = {
+    borderBottom: '1px solid #eee',
+    padding: '8px 12px',
+    textAlign: 'right',
 };
 
 export default ManagerDashboard;

@@ -1,65 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import PurchaseTable from '../components/PurchaseTable';
-import Layout from '../components/Layout';
+import React, { useState, useEffect } from "react";
+import PurchaseTable from "../components/PurchaseTable";
+import BudgetTable from "../components/BudgetTable";
+import "../components/PurchaseTable.css";
 
-const BudgetSummary = () => {
-    const [budget, setBudget] = useState(null);
-    const [budgetType, setBudgetType] = useState('');
-    const [purchases, setPurchases] = useState([]);
-    const [loading, setLoading] = useState(true);
+const SchoolDashboard = () => {
+  const [latestBudget, setLatestBudget] = useState(null);
 
-    useEffect(() => {
-        const token = localStorage.getItem("access_token");
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
 
-        Promise.all([
-            fetch("http://localhost:8000/api/my_budget/", {
-                headers: { Authorization: `Bearer ${token}` }
-            }).then(res => res.json()),
+    fetch("http://localhost:8000/api/my_budget/", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.amount) {
+          setLatestBudget(data);
+        } else {
+          setLatestBudget(null);
+        }
+      })
+      .catch((err) => {
+        console.error("❌ error fetching latest budget:", err);
+        setLatestBudget(null);
+      });
+  }, []);
 
-            fetch("http://localhost:8000/api/purchases/", {
-                headers: { Authorization: `Bearer ${token}` }
-            }).then(res => res.json()),
-        ])
-        .then(([budgetData, purchasesData]) => {
-            setBudget(budgetData.amount);           // جدیدترین سرانه
-            setBudgetType(budgetData.type_display || budgetData.type);
-            setPurchases(purchasesData);
-            setLoading(false);
-        })
-        .catch(err => {
-            console.error(err);
-            setLoading(false);
-        });
-    }, []);
+  return (
+    <div className="card">
+      <h2>وضعیت سرانه اخیر</h2>
+      {latestBudget ? (
+        <p className="budget-info">
+          📌 اخیراً سرانه‌ای از نوع <strong>{latestBudget.type}</strong> به
+          مبلغ <strong>{latestBudget.amount.toLocaleString()}</strong> تومان
+          تخصیص داده شده است.
+        </p>
+      ) : (
+        <p className="budget-info" style={{ color: "#e57373" }}>
+          ⚠️ هنوز سرانه‌ای برای مدرسه تخصیص داده نشده است.
+        </p>
+      )}
 
-    if (loading) return <p>در حال بارگذاری...</p>;
-
-    const totalSpent = purchases.reduce((sum, p) => sum + (p.price * p.quantity), 0);
-    const remaining = budget - totalSpent;
-
-    return (
-        <div className="mb-6 p-4 bg-white rounded shadow">
-            <h3 className="font-bold mb-2">💰 جدیدترین سرانه مدرسه</h3>
-            <p>نوع سرانه: {budgetType}</p>
-            <p>کل سرانه: {budget?.toLocaleString()} تومان</p>
-            <p>مجموع هزینه شده: {totalSpent.toLocaleString()} تومان</p>
-            <p className={`font-semibold ${remaining < 0 ? 'text-red-600' : 'text-green-700'}`}>
-                مانده سرانه: {remaining.toLocaleString()} تومان
-            </p>
-        </div>
-    );
+      <PurchaseTable />
+      <BudgetTable />
+    </div>
+  );
 };
-
-function SchoolDashboard() {
-    return (
-        <Layout title='پنل مدرسه'>
-            <div className="p-4">
-                <h2 className="text-xl mb-4">پنل مدرسه</h2>
-                <BudgetSummary />
-                <PurchaseTable />
-            </div>
-        </Layout>
-    );
-}
 
 export default SchoolDashboard;

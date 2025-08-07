@@ -1,7 +1,8 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import RegisterView, StoreListCreateView, BudgetListCreateView, PurchaseListCreateView, InvoiceListView, \
-    BudgetTypeListView, PurchaseSummaryView, allowances_by_school, BudgetUpdateView
+from .views import RegisterView, BudgetListCreateView, PurchaseListCreateView, InvoiceListView, \
+    BudgetTypeListView, PurchaseSummaryView, allowances_by_school, BudgetUpdateView, ChangePasswordView, \
+    PurchaseViewSet, store_sales_stats
 from . import views
 
 urlpatterns = [
@@ -17,5 +18,7 @@ urlpatterns = [
     path('purchases/', PurchaseListCreateView.as_view(), name='purchases'),
     path('invoices/', InvoiceListView.as_view(), name='invoices'),
     path('store_stats/', views.store_stats, name='store_stats'),
+    path('store_sales_stats/', store_sales_stats, name='store-sales-stats'),
     path('purchase-summary/', PurchaseSummaryView.as_view(), name='purchase-summary'),
+    path('change-password/', ChangePasswordView.as_view(), name='change-password'),
 ]

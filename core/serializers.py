@@ -56,7 +56,6 @@ class PurchaseSerializer(serializers.ModelSerializer):
     school = serializers.PrimaryKeyRelatedField(queryset=School.objects.all(), required=False)
     store = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all())
     total = serializers.SerializerMethodField()
-    total = serializers.SerializerMethodField()
 
     class Meta:
         model = Purchase

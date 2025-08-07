@@ -1,6 +1,5 @@
 from .models import User, Budget, Invoice, Purchase, School, BudgetType, Store
 from .serializers import UserSerializer, BudgetSerializer, PurchaseSerializer, InvoiceSerializer
-from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -12,14 +11,14 @@ from .models import Allowance
 from django.db.models import F, Sum
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from django.contrib.auth.hashers import make_password
-from rest_framework import generics, permissions, status
-from rest_framework.response import Response
+from rest_framework import generics, permissions, status, viewsets
 from django.contrib.auth import get_user_model
-from django.contrib.auth.password_validation import validate_password
-from django.contrib.auth import authenticate
-from rest_framework.serializers import Serializer, CharField, ValidationError
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.contrib.auth.models import User
+from django.contrib.auth.hashers import check_password
 
 User = get_user_model()
 @api_view(['GET'])
@@ -124,6 +123,23 @@ def my_budget(request):
         "type": "مدرسه",
         "year": 1403
     })
+
+
+@api_view(['GET'])
+def store_sales_stats(request):
+    # مجموع مبلغ = جمع (price * quantity)
+    stats = (
+        Purchase.objects
+        .values('store__id', 'store__name')
+        .annotate(total_sales=Sum(F('price') * F('quantity')))
+        .order_by('-total_sales')
+    )
+    return Response(stats)
+
+
+class PurchaseViewSet(viewsets.ModelViewSet):
+    queryset = Purchase.objects.all()
+    serializer_class = PurchaseSerializer
 
 
 @api_view(['GET'])
@@ -286,3 +302,20 @@ class PurchaseCreateView(APIView):
         invoice = create_invoice_for_school(school)
 
         return Response({"detail": "خریدها ثبت شدند", "invoice_id": invoice.id if invoice else None})
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+
+        if not user.check_password(old_password):
+            return Response({"detail": "رمز قدیمی اشتباه است"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save()
+
+        return Response({"detail": "رمز با موفقیت تغییر کرد"}, status=status.HTTP_200_OK)
