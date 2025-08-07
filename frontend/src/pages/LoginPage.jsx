@@ -1,10 +1,11 @@
 import React, {useState} from 'react';
 import {useNavigate} from 'react-router-dom';
+import Layout from '../components/Layout';
+import { jwtDecode } from 'jwt-decode';
 
 function LoginPage() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState('school');
     const navigate = useNavigate();
 
     const handleLogin = async () => {
@@ -16,27 +17,34 @@ function LoginPage() {
             });
             if (!res.ok) throw new Error('Authentication failed');
             const data = await res.json();
-            localStorage.setItem('access_token', data.access);
-            localStorage.setItem('role', role);
-            navigate(role === 'manager' ? '/manager' : '/school');
+            const access = data.access;
+            const payload = jwtDecode(data.access);
+            localStorage.setItem('access_token', access);
+            localStorage.setItem('role', payload.role);
+            if (payload.role === 'school_admin') {
+                localStorage.setItem('school_id', payload.school_id);
+                localStorage.setItem('school_name', payload.school_name);
+            }
+            if (payload.role === 'manager') {
+                navigate('/manager');
+            } else if (payload.role === 'school_admin') {
+                navigate('/school');
+            } else {
+                alert('نقش کاربر نامعتبر است.');
+            }
         } catch (err) {
             alert('❌ ورود ناموفق.');
         }
     };
 
     return (
-        <div className="p-4">
-            <h2 className="text-xl">ورود</h2>
+        <Layout title="ورود به سامانه">
             <input placeholder="نام کاربری" value={username} onChange={e => setUsername(e.target.value)}
-                   className="block mb-2 border"/>
+                   className="block mb-2 border p-2 w-full"/>
             <input type="password" placeholder="رمز عبور" value={password} onChange={e => setPassword(e.target.value)}
-                   className="block mb-2 border"/>
-            <select value={role} onChange={e => setRole(e.target.value)} className="mb-4 border">
-                <option value="school">مدیر مدرسه</option>
-                <option value="manager">مدیر موسسه</option>
-            </select>
-            <button onClick={handleLogin} className="bg-blue-500 text-white px-4 py-2 rounded">ورود</button>
-        </div>
+                   className="block mb-2 border p-2 w-full"/>
+            <button onClick={handleLogin} className="bg-blue-500 text-white px-4 py-2 rounded w-full">ورود</button>
+        </Layout>
     );
 }
 

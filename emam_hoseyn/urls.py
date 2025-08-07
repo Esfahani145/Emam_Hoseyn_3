@@ -16,9 +16,13 @@ Including another URLconf
 """
 from django.urls import path, include
 from django.contrib import admin
+from core.views import MyTokenObtainPairView
+from core.views import SchoolListView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('core.urls')),
+    path('api/schools/', SchoolListView.as_view(), name='schools'),
+    path('api/login/', MyTokenObtainPairView.as_view(), name='custom_token_obtain_pair'),
 ]
 

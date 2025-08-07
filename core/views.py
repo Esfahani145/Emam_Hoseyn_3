@@ -1,32 +1,68 @@
-from rest_framework import generics, permissions, status, views
-from rest_framework.response import Response
+from .models import User, Budget, Invoice, Purchase, School, BudgetType, Store
+from .serializers import UserSerializer, BudgetSerializer, PurchaseSerializer, InvoiceSerializer
+from rest_framework import generics, permissions
+from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import User, School, Store, Budget, BudgetType, Purchase, Invoice
-from .serializers import UserSerializer, SchoolSerializer, StoreSerializer, BudgetSerializer, PurchaseSerializer, \
-    InvoiceSerializer
-from rest_framework.permissions import IsAuthenticated
+from .serializers import MyTokenObtainPairSerializer, SchoolSerializer, BudgetTypeSerializer, StoreSerializer, \
+    AllowanceSerializer
+from django.utils.timezone import now
+from .utils import create_invoice_for_school
+from .models import Allowance
+from django.db.models import F, Sum
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from core.models import Store
-from core.serializers import StoreSerializer
+from django.contrib.auth.hashers import make_password
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
+from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth import authenticate
+from rest_framework.serializers import Serializer, CharField, ValidationError
+
+User = get_user_model()
+@api_view(['GET'])
+def invoice_list(request):
+    start = request.GET.get('start_date')
+    end = request.GET.get('end_date')
+
+    purchases = Purchase.objects.all()
+
+    if start and end:
+        purchases = purchases.filter(created_at__date__range=[start, end])
+    else:
+        purchases = purchases.filter(created_at__date__lte=now().date())
+
+    serializer = PurchaseSerializer(purchases, many=True)
+    return Response(serializer.data)
 
 
-class RegisterView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    permission_classes = [permissions.AllowAny]
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def purchase_summary(request):
+    schools = School.objects.all()
+    data = []
 
+    for school in schools:
+        total_budget = Budget.objects.filter(school=school).aggregate(Sum('amount'))['amount__sum'] or 0
+        total_spent = Purchase.objects.filter(school=school).aggregate(
+            total=Sum(F('price') * F('quantity'))
+        )['total'] or 0
+        remaining = total_budget - total_spent
+        items = Purchase.objects.filter(school=school).values_list('item__name', flat=True)
+        summary = ", ".join(set(items))
 
-class StoreListCreateView(generics.ListCreateAPIView):
-    queryset = Store.objects.all()
-    serializer_class = StoreSerializer
-    permission_classes = [permissions.IsAuthenticated]
+        data.append({
+            "school_id": school.id,
+            "school_name": school.name,
+            "total_budget": total_budget,
+            "total_spent": total_spent,
+            "remaining": remaining,
+            "items_summary": summary
+        })
 
-    def get_permissions(self):
-        if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
-            if self.request.user.role != 'manager':
-                self.permission_denied(self.request, message="فقط مدیر موسسه اجازه دارد")
-        return super().get_permissions()
+    return Response(data)
 
 
 @api_view(['POST'])
@@ -46,7 +82,6 @@ def select_store(request):
     return Response({'message': 'store selected successfully'})
 
 
-# core/views.py
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def store_list(request):
@@ -61,6 +96,57 @@ def store_list(request):
         return Response({'id': store.id, 'name': store.name}, status=201)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def store_stats(request):
+    stores = Store.objects.all()
+    data = []
+    for store in stores:
+        data.append({
+            'id': store.id,
+            'name': store.name,
+        })
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_budget(request):
+    school_id = request.auth.get('school_id')  # JWT decoded payload
+
+    if not school_id:
+        return Response({"error": "school_id not found in token"}, status=400)
+
+    total = Budget.objects.filter(school_id=school_id).aggregate(Sum('amount'))['amount__sum'] or 0
+
+    return Response({
+        "amount": total,
+        "type": "مدرسه",
+        "year": 1403
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def allowances_by_school(request, school_id):
+    allowances = Allowance.objects.filter(school_id=school_id)
+    serializer = AllowanceSerializer(allowances, many=True)
+    return Response(serializer.data)
+
+class BudgetUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = Budget.objects.all()
+    serializer_class = BudgetSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'school_admin':
+            return Budget.objects.filter(school=user.school)
+        elif user.role == 'manager':
+            return Budget.objects.all()
+        return Budget.objects.none()
+
+
 class BudgetListCreateView(generics.ListCreateAPIView):
     queryset = Budget.objects.all()
     serializer_class = BudgetSerializer
@@ -69,18 +155,16 @@ class BudgetListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.role == 'school_admin':
-            # فقط بودجه مدرسه خودش رو ببینه
             return Budget.objects.filter(school=user.school)
         elif user.role == 'manager':
-            # مدیر موسسه همه بودجه‌ها رو ببینه
             return Budget.objects.all()
         else:
             return Budget.objects.none()
 
     def perform_create(self, serializer):
         if self.request.user.role != 'manager':
-            raise PermissionError("فقط مدیر موسسه می‌تواند بودجه ایجاد کند")
-        serializer.save()
+            raise PermissionDenied("فقط مدیر مدرسه می‌تواند خرید ثبت کند")
+            serializer.save()
 
 
 class PurchaseListCreateView(generics.ListCreateAPIView):
@@ -110,3 +194,95 @@ class InvoiceListView(generics.ListAPIView):
         if user.role == 'manager':
             return Invoice.objects.all()
         return Invoice.objects.none()
+
+
+class SchoolListView(generics.ListAPIView):
+    serializer_class = SchoolSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'manager':
+            return School.objects.all()
+        elif user.role == 'school_admin':
+            return School.objects.filter(admin=user)
+        return School.objects.none()
+
+
+class MyTokenObtainPairView(TokenObtainPairView):
+    serializer_class = MyTokenObtainPairSerializer
+
+
+class BudgetTypeListView(generics.ListAPIView):
+    queryset = BudgetType.objects.all()
+    serializer_class = BudgetTypeSerializer
+
+
+class RegisterView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+class StoreListCreateView(generics.ListCreateAPIView):
+    queryset = Store.objects.all()
+    serializer_class = StoreSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
+            if self.request.user.role != 'manager':
+                self.permission_denied(self.request, message="فقط مدیر موسسه اجازه دارد")
+        return super().get_permissions()
+
+
+class PurchaseSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'manager':
+            return Response({'detail': 'Unauthorized'}, status=403)
+
+        schools = School.objects.all()
+        summary = []
+
+        for school in schools:
+            total_budget = Budget.objects.filter(school=school).aggregate(Sum('amount'))['amount__sum'] or 0
+            purchases = Purchase.objects.filter(school=school)
+            total_spent = sum([p.total for p in purchases])
+            items = [p.description for p in purchases]
+
+            summary.append({
+                'school_id': school.id,
+                'school_name': school.name,
+                'total_budget': total_budget,
+                'total_spent': total_spent,
+                'remaining': total_budget - total_spent,
+                'items_summary': '، '.join(items)
+            })
+
+        return Response(summary)
+
+
+class PurchaseCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        purchases_data = request.data.get("purchases", [])
+
+        school = request.user.school
+        purchases = []
+
+        for item in purchases_data:
+            purchase = Purchase.objects.create(
+                school=school,
+                store_id=item["store"],
+                description=item["description"],
+                quantity=item["quantity"],
+                price=item["price"]
+            )
+            purchases.append(purchase)
+
+        invoice = create_invoice_for_school(school)
+
+        return Response({"detail": "خریدها ثبت شدند", "invoice_id": invoice.id if invoice else None})
